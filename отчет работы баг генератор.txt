@@ -1,0 +1,12 @@
+📋 Сводка багов на сегодня
+
+Всего багов: 8
+🔴 Critical: 2
+🟠 Major: 5
+🟡 Minor: 1
+
+Открыто (требуют внимания): 0
+
+---
+Сгенерировано из таблицы:
+https://docs.google.com/spreadsheets/d/1PtCU9Dga2yrLShmrUwOE9jJ3FSuTRrpkfxPH9diF3R4/edit?gid=0
