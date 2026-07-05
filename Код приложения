@@ -1,0 +1,125 @@
+import pandas as pd
+import tkinter as tk
+from tkinter import scrolledtext, messagebox, filedialog
+import re
+
+def is_valid_google_sheets_url(url):
+    pattern = r"https://docs\.google\.com/spreadsheets/d/[a-zA-Z0-9-_]+"
+    return re.match(pattern, url) is not None
+
+def generate_report():
+    url = entry_url.get().strip()
+    if not url:
+        messagebox.showerror("Ошибка", "Вставьте ссылку на таблицу.")
+        return
+
+    if not is_valid_google_sheets_url(url):
+        messagebox.showerror("Ошибка", "Ссылка не похожа на Google Sheets.")
+        return
+
+    if "/edit" in url:
+        csv_url = url.split("/edit")[0] + "/export?format=csv"
+    else:
+        csv_url = url + "/export?format=csv"
+
+    try:
+        df = pd.read_csv(csv_url)
+        required_columns = ['Severity', 'Status']
+        for col in required_columns:
+            if col not in df.columns:
+                messagebox.showerror("Ошибка", f"В таблице нет колонки '{col}'.")
+                return
+
+        total = len(df)
+        critical = len(df[df['Severity'] == 'Critical'])
+        major = len(df[df['Severity'] == 'Major'])
+        minor = len(df[df['Severity'] == 'Minor'])
+        open_bugs = len(df[df['Status'] == 'Open'])
+
+        report = f"""📋 Сводка багов на сегодня
+
+Всего багов: {total}
+🔴 Critical: {critical}
+🟠 Major: {major}
+🟡 Minor: {minor}
+
+Открыто (требуют внимания): {open_bugs}
+
+---
+Сгенерировано из таблицы:
+{url}
+"""
+        text_report.delete(1.0, tk.END)
+        text_report.insert(tk.END, report)
+        global current_report
+        current_report = report
+
+    except Exception as e:
+        messagebox.showerror("Ошибка", f"Не удалось прочитать таблицу:\n{e}")
+
+def save_report():
+    if not current_report:
+        messagebox.showwarning("Внимание", "Сначала сформируйте отчёт.")
+        return
+    file_path = filedialog.asksaveasfilename(defaultextension=".txt", filetypes=[("Текстовые файлы", "*.txt")])
+    if file_path:
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write(current_report)
+        messagebox.showinfo("Успех", f"Отчёт сохранён в:\n{file_path}")
+
+def show_context_menu(event):
+    context_menu.post(event.x_root, event.y_root)
+
+def paste_from_clipboard():
+    try:
+        clipboard_text = root.clipboard_get()
+        entry_url.delete(0, tk.END)
+        entry_url.insert(0, clipboard_text)
+    except:
+        messagebox.showwarning("Внимание", "Не удалось вставить текст из буфера обмена.")
+
+# --- ИНТЕРФЕЙС ---
+root = tk.Tk()
+root.title("Bug Report Generator")
+root.geometry("700x600")
+root.configure(bg='#f5f5f5')
+
+label_title = tk.Label(root, text="📋 Генератор сводки багов", font=("Arial", 16, "bold"), bg='#f5f5f5', fg='#333')
+label_title.pack(pady=10)
+
+frame_url = tk.Frame(root, bg='#f5f5f5')
+frame_url.pack(pady=10, padx=20, fill='x')
+
+label_url = tk.Label(frame_url, text="Вставьте ссылку на Google Sheets:", bg='#f5f5f5', font=("Arial", 10))
+label_url.pack(anchor='w')
+
+entry_url = tk.Entry(frame_url, width=80, font=("Arial", 10), relief=tk.SOLID, bd=2)
+entry_url.pack(fill='x', pady=5)
+
+# Контекстное меню для поля ввода
+context_menu = tk.Menu(root, tearoff=0)
+context_menu.add_command(label="Вставить", command=paste_from_clipboard)
+
+entry_url.bind("<Button-3>", show_context_menu)  # Правая кнопка мыши
+
+button_generate = tk.Button(root, text="🔍 Сформировать отчёт", command=generate_report, bg='#4CAF50', fg='white', font=("Arial", 12, "bold"), padx=20, pady=5)
+button_generate.pack(pady=10)
+
+text_report = scrolledtext.ScrolledText(root, height=15, width=80, font=("Courier New", 11), relief=tk.SOLID, bd=2)
+text_report.pack(pady=10, padx=20, fill='both', expand=True)
+
+frame_buttons = tk.Frame(root, bg='#f5f5f5')
+frame_buttons.pack(pady=10)
+
+button_save = tk.Button(frame_buttons, text="💾 Сохранить отчёт", command=save_report, bg='#2196F3', fg='white', font=("Arial", 10, "bold"), padx=15, pady=5)
+button_save.pack(side=tk.LEFT, padx=5)
+
+button_clear = tk.Button(frame_buttons, text="🗑️ Очистить", command=lambda: text_report.delete(1.0, tk.END), bg='#ff9800', fg='white', font=("Arial", 10, "bold"), padx=15, pady=5)
+button_clear.pack(side=tk.LEFT, padx=5)
+
+label_hint = tk.Label(root, text="Вставьте ссылку через правую кнопку мыши → Вставить", font=("Arial", 9), bg='#f5f5f5', fg='#888')
+label_hint.pack(pady=5)
+
+current_report = ""
+
+root.mainloop()
